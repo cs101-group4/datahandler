@@ -1,31 +1,39 @@
+from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 
-class Schedule:
-    def __init__(self):
-        self.schedule_list = []
+data_set = {}
 
-    def get_schedule_json(self):
-        """
-        返回包含所有日程的JSON
-        """
-        return json.dumps(self.schedule_list)
+class RequestHandler(BaseHTTPRequestHandler):
+    
+    def do_POST(self):
+        content_length = int(self.headers['Content-Length'])
+        post_data = self.rfile.read(content_length).decode('utf-8')
+        data = json.loads(post_data)
+        data_set.update(data)
+        with open('data.json', 'w') as f:
+            json.dump(data_set, f)
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
+        response = {
+            "message": "Data received and saved",
+            "data": data
+        }
+        self.wfile.write(json.dumps(response).encode('utf-8'))
 
-    def add_schedule_from_json(self, schedule_json):
-        """
-        将前端请求的JSON记录到本地的一个List中
-        """
-        self.schedule_list.append(json.loads(schedule_json))
+    def do_GET(self):
+        with open('data.json', 'r') as f:
+            data_set = json.load(f)
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
+        self.wfile.write(json.dumps(data_set).encode('utf-8'))
 
-    def save_schedule_to_file(self, filename):
-        """
-        将该List实时保存到硬盘上
-        """
-        with open(filename, 'w') as f:
-            json.dump(self.schedule_list, f)
+def run(server_class=HTTPServer, handler_class=RequestHandler, port=8001):
+    server_address = ('', port)
+    httpd = server_class(server_address, handler_class)
+    print(f'Starting server on port {port}...')
+    httpd.serve_forever()
 
-    def load_schedule_from_file(self, filename):
-        """
-        打开时自动从硬盘载入List
-        """
-        with open(filename, 'r') as f:
-            self.schedule_list = json.load(f)
+if __name__ == '__main__':
+    run()
